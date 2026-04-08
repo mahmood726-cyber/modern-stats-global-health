@@ -108,12 +108,9 @@ def run_analysis():
         ]
     }
     
-    if not os.path.exists(DASHBOARD_DIR):
-        os.makedirs(DASHBOARD_DIR)
-        
-    with open(os.path.join(DASHBOARD_DIR, "results.json"), "w") as f:
+    with open("results.json", "w") as f:
         json.dump(results, f, indent=4)
-    print("Stress Test and Policy Simulation complete.")
+    print("Stress Test and Policy Simulation complete. Results saved to root.")
 
 if __name__ == "__main__":
     run_analysis()
