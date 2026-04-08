@@ -6,26 +6,37 @@
     <title>Modern Non-Parametrics in Global Health</title>
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; color: #333; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 1200px; margin: 40px auto; padding: 0 20px; color: #333; }
         h1 { color: #2c3e50; }
         .meta { font-size: 0.9em; color: #666; background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 30px; }
-        #chart { width: 100%; height: 600px; }
+        #chart, #causal-chart { width: 100%; height: 600px; margin-bottom: 50px; }
         .footer { margin-top: 50px; font-size: 0.8em; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
-        .stat-card { display: inline-block; background: #eef2f7; padding: 10px 20px; border-radius: 8px; margin-right: 20px; }
+        .stat-card { display: inline-block; background: #eef2f7; padding: 10px 20px; border-radius: 8px; margin-right: 20px; margin-bottom: 10px; }
         .stat-val { font-size: 1.5em; font-weight: bold; color: #2980b9; }
         .stat-label { font-size: 0.8em; text-transform: uppercase; color: #7f8c8d; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     </style>
 </head>
 <body>
     <h1>Modern Non-Parametrics in Global Health</h1>
-    <p>Analyzing the relationship between GDP per capita and Life Expectancy using <strong>Generalized Additive Models (GAMs)</strong> with B-Splines.</p>
+    <p>Advanced <strong>Double Machine Learning (DML)</strong> and <strong>Quantile Spline</strong> analysis of global health data lakes (IHME, WB, WHO).</p>
     
     <div id="stats"></div>
-    <div id="chart"></div>
+
+    <div class="grid">
+        <div>
+            <h2>1. Distributional Non-Parametric Fit</h2>
+            <div id="chart"></div>
+        </div>
+        <div>
+            <h2>2. Causal Orthogonalization (DML)</h2>
+            <div id="causal-chart"></div>
+        </div>
+    </div>
 
     <div class="meta">
         <h3>TruthCert Provenance</h3>
-        <p><strong>Protocol:</strong> E156 v0.2 | <strong>Method:</strong> GAM (B-Splines, df=5, degree=3)</p>
+        <p><strong>Protocol:</strong> E156 v0.2 | <strong>Method:</strong> Double Machine Learning (DML) with B-Spline Nuisance Models</p>
         <div id="provenance">Loading manifest...</div>
     </div>
 
@@ -37,27 +48,26 @@
         async function init() {
             const res = await fetch('results.json');
             const data = await res.json();
-            
             const manifestRes = await fetch('../data/manifest.json');
             const manifest = await manifestRes.json();
 
             // Display stats
             document.getElementById('stats').innerHTML = `
                 <div class="stat-card">
-                    <div class="stat-label">Analysis Year</div>
-                    <div class="stat-val">${data.analysis_year}</div>
+                    <div class="stat-label">Causal Effect (DML)</div>
+                    <div class="stat-val">${data.causal_effect.toFixed(3)} yrs/%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Countries</div>
-                    <div class="stat-val">${data.n_countries}</div>
+                    <div class="stat-label">95% CI</div>
+                    <div class="stat-val">[${data.causal_ci_lower.toFixed(2)}, ${data.causal_ci_upper.toFixed(2)}]</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Non-Linearity Score</div>
                     <div class="stat-val">${data.non_linearity_score_pct.toFixed(2)}%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Mean Delta</div>
-                    <div class="stat-val">${data.mean_delta_years.toFixed(2)} yrs</div>
+                    <div class="stat-label">Countries</div>
+                    <div class="stat-val">${data.n_countries}</div>
                 </div>
             `;
 
@@ -70,47 +80,37 @@
             provHtml += `</ul>`;
             document.getElementById('provenance').innerHTML = provHtml;
 
-            // Plot data
+            // Chart 1: Distributional Fit
             const countries = data.data_points.map(p => p.iso3c);
             const gdps = data.data_points.map(p => p.gdp);
             const les = data.data_points.map(p => p.life_expectancy);
-            const linFits = data.data_points.map(p => p.linear_fit);
-            const npFits = data.data_points.map(p => p.np_fit);
+            const q10 = data.data_points.map(p => p.q10);
+            const q50 = data.data_points.map(p => p.q50);
+            const q90 = data.data_points.map(p => p.q90);
 
-            const traces = [
-                {
-                    x: gdps,
-                    y: les,
-                    mode: 'markers',
-                    type: 'scatter',
-                    name: 'Actual Data (IHME/WB/WHO)',
-                    text: countries,
-                    marker: { color: 'rgba(52, 152, 219, 0.5)' }
-                },
-                {
-                    x: gdps,
-                    y: linFits,
-                    mode: 'lines',
-                    name: 'Linear Baseline (Log10-GDP)',
-                    line: { color: '#e74c3c', dash: 'dash' }
-                },
-                {
-                    x: gdps,
-                    y: npFits,
-                    mode: 'lines',
-                    name: 'GAM (B-Spline Smooth)',
-                    line: { color: '#2ecc71', width: 3 }
-                }
-            ];
+            Plotly.newPlot('chart', [
+                { x: gdps, y: les, mode: 'markers', name: 'Actual', text: countries, marker: { color: 'rgba(52, 152, 219, 0.4)' } },
+                { x: gdps, y: q10, mode: 'lines', name: '10th Pct', line: { color: '#e74c3c' } },
+                { x: gdps, y: q50, mode: 'lines', name: 'Median', line: { color: '#2ecc71', width: 3 } },
+                { x: gdps, y: q90, mode: 'lines', name: '90th Pct', line: { color: '#3498db' } }
+            ], { xaxis: { type: 'log', title: 'GDP (USD)' }, yaxis: { title: 'Life Expectancy' }, margin: { t: 30 } });
 
-            const layout = {
-                xaxis: { title: 'GDP per capita (USD)', type: 'log' },
-                yaxis: { title: 'Life Expectancy (Years)' },
-                hovermode: 'closest',
-                legend: { orientation: 'h', y: -0.2 }
-            };
+            // Chart 2: Causal Residuals (DML)
+            const dRes = data.data_points.map(p => p.d_res);
+            const yRes = data.data_points.map(p => p.y_res);
+            
+            // Regression line for residuals
+            const xRange = [Math.min(...dRes), Math.max(...dRes)];
+            const yRange = xRange.map(x => x * data.causal_effect);
 
-            Plotly.newPlot('chart', traces, layout);
+            Plotly.newPlot('causal-chart', [
+                { x: dRes, y: yRes, mode: 'markers', name: 'Orthogonal Residuals', text: countries, marker: { color: 'rgba(155, 89, 182, 0.5)' } },
+                { x: xRange, y: yRange, mode: 'lines', name: 'Causal Effect', line: { color: '#8e44ad', width: 3 } }
+            ], { 
+                xaxis: { title: 'Health Exp Residuals (Partialled out GDP)' }, 
+                yaxis: { title: 'Life Exp Residuals (Partialled out GDP)' },
+                margin: { t: 30 }
+            });
         }
         init();
     </script>
