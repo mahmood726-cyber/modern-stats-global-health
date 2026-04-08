@@ -1,0 +1,51 @@
+{
+    "project": "modern-stats-global-health",
+    "timestamp": "2026-04-08T21:19:20.975718",
+    "files": [
+        {
+            "filename": "country_mapping.parquet",
+            "sha256": "4117e2b64f4d7772ca65d5c17d39fb4453d0fdd157034e272337b37e221400a3",
+            "size_bytes": 5148
+        },
+        {
+            "filename": "ctgov_transparency_snapshot.rds",
+            "sha256": "fceaec4c3e3d06b3ff2fa4c60e8d42dc2f1ea9e475dae0082c5e15a3539cf36a",
+            "size_bytes": 81647
+        },
+        {
+            "filename": "ihme_dalys.parquet",
+            "sha256": "e1dd0528092babd952fa70a121e91a9b0d69cb9a95792f1e7eaa6c21bc6b7b70",
+            "size_bytes": 451950
+        },
+        {
+            "filename": "ihme_deaths.parquet",
+            "sha256": "07b5ac0a0b9b1e1a126e0fdc3e2fa64d7f87971ad4542555cd50a65fe6fcd249",
+            "size_bytes": 454904
+        },
+        {
+            "filename": "ihme_ylds.parquet",
+            "sha256": "d228bbfbf4dae349247584addd28e1ca34279efd4c2b66e63d6a766952ca1ebf",
+            "size_bytes": 453719
+        },
+        {
+            "filename": "ihme_ylls.parquet",
+            "sha256": "8571149c125a8008e07ae5d58d17a8c432484f8673b7c3d4443b968bd4adaad0",
+            "size_bytes": 454955
+        },
+        {
+            "filename": "manifest.json",
+            "sha256": "9c35c3a3d9386058f50bbfa6a3570d7189d7c5b706de1069f3983d029ef8131b",
+            "size_bytes": 1692
+        },
+        {
+            "filename": "wb_indicators.parquet",
+            "sha256": "b09f3025c3aa4087ba38e0fb2fb5906d7eeea73c438025413ec301ea1ceb4bef",
+            "size_bytes": 20793
+        },
+        {
+            "filename": "who_life_expectancy.parquet",
+            "sha256": "2fdc1c7a65def2ff226b36630c27b41baf812cae90ebd9d7c0c229180fe71660",
+            "size_bytes": 52321
+        }
+    ]
+}
