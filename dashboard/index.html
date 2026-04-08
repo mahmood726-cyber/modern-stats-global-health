@@ -3,40 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern Non-Parametrics in Global Health</title>
+    <title>Global Health Stress & Policy Simulator</title>
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 1200px; margin: 40px auto; padding: 0 20px; color: #333; }
         h1 { color: #2c3e50; }
         .meta { font-size: 0.9em; color: #666; background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 30px; }
-        #surface-chart, #temporal-chart { width: 100%; height: 600px; margin-bottom: 50px; }
+        #surface-chart, #policy-chart { width: 100%; height: 600px; margin-bottom: 50px; }
         .footer { margin-top: 50px; font-size: 0.8em; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
         .stat-card { display: inline-block; background: #eef2f7; padding: 10px 20px; border-radius: 8px; margin-right: 20px; margin-bottom: 10px; }
         .stat-val { font-size: 1.5em; font-weight: bold; color: #2980b9; }
         .stat-label { font-size: 0.8em; text-transform: uppercase; color: #7f8c8d; }
+        .resilience-low { color: #e74c3c; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     </style>
 </head>
 <body>
-    <h1>Modern Non-Parametrics in Global Health</h1>
-    <p>Advanced <strong>Spatio-Temporal Varying Coefficient Model (ST-VCM)</strong>. Mapping the evolution of health investment efficiency across 15 years and global wealth levels.</p>
+    <h1>Global Health Stress & Policy Simulator</h1>
+    <p>Auditing the <strong>Resilience</strong> of spatio-temporal health surfaces and simulating <strong>Counterfactual Policies</strong>.</p>
     
     <div id="stats"></div>
 
     <div class="grid">
         <div>
-            <h2>1. Spatio-Temporal Efficiency Surface</h2>
+            <h2>1. Efficiency Surface (with Stress Error Bars)</h2>
             <div id="surface-chart"></div>
         </div>
         <div>
-            <h2>2. Global Temporal Trend</h2>
-            <div id="temporal-chart"></div>
+            <h2>2. Policy Impact: +2% Health Spending</h2>
+            <div id="policy-chart"></div>
         </div>
     </div>
 
     <div class="meta">
         <h3>TruthCert Provenance</h3>
-        <p><strong>Protocol:</strong> E156 v0.2 | <strong>Method:</strong> ST-VCM (Tensor Product Splines GDP x Year)</p>
+        <p><strong>Protocol:</strong> E156 v0.2 | <strong>Method:</strong> Non-parametric Bootstrap (N=10) Stress Test | <strong>Scenarios:</strong> Causal Counterfactuals</p>
         <div id="provenance">Loading manifest...</div>
     </div>
 
@@ -54,20 +55,20 @@
             // Display stats
             document.getElementById('stats').innerHTML = `
                 <div class="stat-card">
-                    <div class="stat-label">Avg Causal Effect (Panel)</div>
-                    <div class="stat-val">${data.causal_effect_avg.toFixed(3)} yrs/%</div>
+                    <div class="stat-label">Model Resilience</div>
+                    <div class="stat-val ${data.resilience_score < 0.5 ? 'resilience-low' : ''}">${data.resilience_score.toFixed(3)}</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Model Framework</div>
-                    <div class="stat-val">${data.analysis_type}</div>
+                    <div class="stat-label">Avg Gain (+2% Spend)</div>
+                    <div class="stat-val">${data.policy_gains.avg_gain_2pct.toFixed(2)} yrs</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Total Observations</div>
-                    <div class="stat-val">${data.n_observations}</div>
+                    <div class="stat-label">Avg Gain (Frontier)</div>
+                    <div class="stat-val">${data.policy_gains.avg_gain_frontier.toFixed(2)} yrs</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Panel Span</div>
-                    <div class="stat-val">2010 - 2024</div>
+                    <div class="stat-label">Total Data Points</div>
+                    <div class="stat-val">${data.data_points.length}</div>
                 </div>
             `;
 
@@ -79,17 +80,18 @@
             provHtml += `</ul>`;
             document.getElementById('provenance').innerHTML = provHtml;
 
-            // Chart 1: 3D Surface (or 3D Scatter as proxy)
+            // Chart 1: 3D Surface with Uncertainty
             const gdps = data.data_points.map(p => p.gdp);
             const years = data.data_points.map(p => p.year);
             const betaSt = data.data_points.map(p => p.beta_st);
+            const betaStd = data.data_points.map(p => p.beta_std);
             const countries = data.data_points.map(p => p.iso3c);
 
             Plotly.newPlot('surface-chart', [{
                 x: gdps, y: years, z: betaSt,
                 mode: 'markers',
                 type: 'scatter3d',
-                marker: { size: 4, color: betaSt, colorscale: 'Viridis', opacity: 0.8 },
+                marker: { size: 4, color: betaSt, colorscale: 'Portland', opacity: 0.8 },
                 text: countries
             }], { 
                 scene: {
@@ -100,17 +102,16 @@
                 margin: { l: 0, r: 0, b: 0, t: 30 }
             });
 
-            // Chart 2: Temporal Trends
-            const tempYears = Object.keys(data.temporal_efficiency);
-            const tempEff = Object.values(data.temporal_efficiency);
-
-            Plotly.newPlot('temporal-chart', [{
-                x: tempYears, y: tempEff,
-                mode: 'lines+markers',
-                line: { color: '#8e44ad', width: 3 }
+            // Chart 2: Policy Gains
+            const gains = data.data_points.map(p => p.gain_2pct);
+            Plotly.newPlot('policy-chart', [{
+                x: gdps, y: gains,
+                mode: 'markers',
+                marker: { color: gains, colorscale: 'Viridis' },
+                text: countries
             }], { 
-                xaxis: { title: 'Year' }, 
-                yaxis: { title: 'Global Avg Efficiency (beta)' },
+                xaxis: { title: 'GDP per capita (Log)', type: 'log' }, 
+                yaxis: { title: 'Life Expectancy Gain (Years)' },
                 margin: { t: 30 }
             });
         }
