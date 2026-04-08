@@ -9,7 +9,7 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 1200px; margin: 40px auto; padding: 0 20px; color: #333; }
         h1 { color: #2c3e50; }
         .meta { font-size: 0.9em; color: #666; background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 30px; }
-        #chart, #vcm-chart { width: 100%; height: 600px; margin-bottom: 50px; }
+        #surface-chart, #temporal-chart { width: 100%; height: 600px; margin-bottom: 50px; }
         .footer { margin-top: 50px; font-size: 0.8em; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
         .stat-card { display: inline-block; background: #eef2f7; padding: 10px 20px; border-radius: 8px; margin-right: 20px; margin-bottom: 10px; }
         .stat-val { font-size: 1.5em; font-weight: bold; color: #2980b9; }
@@ -19,24 +19,24 @@
 </head>
 <body>
     <h1>Modern Non-Parametrics in Global Health</h1>
-    <p>Advanced <strong>Non-parametric Varying Coefficient Model (VCM)</strong> and <strong>Quantile Spline</strong> analysis.</p>
+    <p>Advanced <strong>Spatio-Temporal Varying Coefficient Model (ST-VCM)</strong>. Mapping the evolution of health investment efficiency across 15 years and global wealth levels.</p>
     
     <div id="stats"></div>
 
     <div class="grid">
         <div>
-            <h2>1. Distributional Non-Parametric Fit</h2>
-            <div id="chart"></div>
+            <h2>1. Spatio-Temporal Efficiency Surface</h2>
+            <div id="surface-chart"></div>
         </div>
         <div>
-            <h2>2. Varying Causal Efficiency (VCM)</h2>
-            <div id="vcm-chart"></div>
+            <h2>2. Global Temporal Trend</h2>
+            <div id="temporal-chart"></div>
         </div>
     </div>
 
     <div class="meta">
         <h3>TruthCert Provenance</h3>
-        <p><strong>Protocol:</strong> E156 v0.2 | <strong>Method:</strong> Varying Coefficient Model (Spline basis interactions)</p>
+        <p><strong>Protocol:</strong> E156 v0.2 | <strong>Method:</strong> ST-VCM (Tensor Product Splines GDP x Year)</p>
         <div id="provenance">Loading manifest...</div>
     </div>
 
@@ -54,55 +54,63 @@
             // Display stats
             document.getElementById('stats').innerHTML = `
                 <div class="stat-card">
-                    <div class="stat-label">Avg Causal Effect</div>
+                    <div class="stat-label">Avg Causal Effect (Panel)</div>
                     <div class="stat-val">${data.causal_effect_avg.toFixed(3)} yrs/%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">VCM Beta Mean</div>
-                    <div class="stat-val">${data.vcm_beta_mean.toFixed(3)} yrs/%</div>
+                    <div class="stat-label">Model Framework</div>
+                    <div class="stat-val">${data.analysis_type}</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Analysis Year</div>
-                    <div class="stat-val">${data.analysis_year}</div>
+                    <div class="stat-label">Total Observations</div>
+                    <div class="stat-val">${data.n_observations}</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Countries</div>
-                    <div class="stat-val">${data.n_countries}</div>
+                    <div class="stat-label">Panel Span</div>
+                    <div class="stat-val">2010 - 2024</div>
                 </div>
             `;
 
             // Display provenance
             let provHtml = `<ul>`;
             manifest.files.forEach(f => {
-                provHtml += `<li><code>${f.filename}</code>: <small>${f.sha256.substring(0, 16)}...</small> 
-                    <span style="color:#aaa; font-size:0.8em">| Fetch: ${f.fetch_timestamp.substring(0, 10)}</span></li>`;
+                provHtml += `<li><code>${f.filename}</code>: <small>${f.sha256.substring(0, 16)}...</small></li>`;
             });
             provHtml += `</ul>`;
             document.getElementById('provenance').innerHTML = provHtml;
 
-            // Chart 1: Distributional Fit
+            // Chart 1: 3D Surface (or 3D Scatter as proxy)
             const gdps = data.data_points.map(p => p.gdp);
-            const les = data.data_points.map(p => p.life_expectancy);
-            const q10 = data.data_points.map(p => p.q10);
-            const q50 = data.data_points.map(p => p.q50);
-            const q90 = data.data_points.map(p => p.q90);
+            const years = data.data_points.map(p => p.year);
+            const betaSt = data.data_points.map(p => p.beta_st);
             const countries = data.data_points.map(p => p.iso3c);
 
-            Plotly.newPlot('chart', [
-                { x: gdps, y: les, mode: 'markers', name: 'Actual', text: countries, marker: { color: 'rgba(52, 152, 219, 0.4)' } },
-                { x: gdps, y: q10, mode: 'lines', name: '10th Pct', line: { color: '#e74c3c' } },
-                { x: gdps, y: q50, mode: 'lines', name: 'Median', line: { color: '#2ecc71', width: 3 } },
-                { x: gdps, y: q90, mode: 'lines', name: '90th Pct', line: { color: '#3498db' } }
-            ], { xaxis: { type: 'log', title: 'GDP (USD)' }, yaxis: { title: 'Life Expectancy' }, margin: { t: 30 } });
+            Plotly.newPlot('surface-chart', [{
+                x: gdps, y: years, z: betaSt,
+                mode: 'markers',
+                type: 'scatter3d',
+                marker: { size: 4, color: betaSt, colorscale: 'Viridis', opacity: 0.8 },
+                text: countries
+            }], { 
+                scene: {
+                    xaxis: { title: 'GDP (Log)', type: 'log' },
+                    yaxis: { title: 'Year' },
+                    zaxis: { title: 'Efficiency (beta)' }
+                },
+                margin: { l: 0, r: 0, b: 0, t: 30 }
+            });
 
-            // Chart 2: Varying Coefficient beta(GDP)
-            const betaGdp = data.data_points.map(p => p.beta_gdp);
+            // Chart 2: Temporal Trends
+            const tempYears = Object.keys(data.temporal_efficiency);
+            const tempEff = Object.values(data.temporal_efficiency);
 
-            Plotly.newPlot('vcm-chart', [
-                { x: gdps, y: betaGdp, mode: 'lines', name: 'Efficiency beta(GDP)', line: { color: '#8e44ad', width: 3 } }
-            ], { 
-                xaxis: { type: 'log', title: 'GDP (USD)' }, 
-                yaxis: { title: 'Efficiency (Life Exp years / 1% Health Spending)' },
+            Plotly.newPlot('temporal-chart', [{
+                x: tempYears, y: tempEff,
+                mode: 'lines+markers',
+                line: { color: '#8e44ad', width: 3 }
+            }], { 
+                xaxis: { title: 'Year' }, 
+                yaxis: { title: 'Global Avg Efficiency (beta)' },
                 margin: { t: 30 }
             });
         }

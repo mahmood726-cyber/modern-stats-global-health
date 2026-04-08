@@ -10,79 +10,91 @@ DATA_DIR = "data"
 DASHBOARD_DIR = "dashboard"
 
 def run_analysis():
-    # 1. DATA LOADING
+    # 1. DATA LOADING (Full Panel: 2010-2024)
     wb = pd.read_parquet(os.path.join(DATA_DIR, "wb_indicators.parquet"))
     who = pd.read_parquet(os.path.join(DATA_DIR, "who_life_expectancy.parquet"))
     
-    # Merge Panel
+    # Merge Panel (Country-Year)
     df = wb.merge(who, on=["iso3c", "year"], how="inner")
-    df_2019 = df[df["year"] == 2019].dropna(subset=["gdp_pc_usd", "health_exp_pct_gdp", "life_expectancy"])
+    df = df.dropna(subset=["gdp_pc_usd", "health_exp_pct_gdp", "life_expectancy"])
     
-    if df_2019.empty:
-        print("No data found for 2019 VCM analysis.")
+    if df.empty:
+        print("No panel data found for ST-VCM analysis.")
         return
 
-    # Sort by GDP for smooth function estimation
-    df_2019 = df_2019.sort_values("gdp_pc_usd")
+    # Sort for surface estimation
+    df = df.sort_values(["year", "gdp_pc_usd"])
     
-    Y = df_2019["life_expectancy"].values
-    D = df_2019["health_exp_pct_gdp"].values
-    X_log = np.log10(df_2019["gdp_pc_usd"].values)
+    Y = df["life_expectancy"].values
+    D = df["health_exp_pct_gdp"].values
+    X_log = np.log10(df["gdp_pc_usd"].values)
+    T = df["year"].values
+    T_norm = (T - T.min()) / (T.max() - T.min()) # Normalize Time for splines
     
-    # 2. VARYING COEFFICIENT MODEL (VCM)
-    # Basis Expansion: Y = Spline(X) + [Spline(X) * D]
-    bs = BSplines(X_log, df=[6], degree=[3])
-    basis_matrix = bs.transform(X_log)
-    n_basis = basis_matrix.shape[1]
+    # 2. SPATIO-TEMPORAL VARYING COEFFICIENT MODEL (ST-VCM)
+    # We use a 2D Tensor Product of Splines: f(GDP, Year)
+    # Basis 1: GDP (df=5), Basis 2: Year (df=4)
+    # Total Basis: 5 * 4 = 20 components
     
-    # Full Model Matrix
-    # [Intercept, Spline_1...Spline_5, Spline_1*D...Spline_5*D]
-    X_const = sm.add_constant(basis_matrix)
-    interaction_matrix = basis_matrix * D[:, np.newaxis]
-    X_vcm = np.hstack([X_const, interaction_matrix])
+    # Create 2D Basis manually (Tensor Product)
+    bs_gdp = BSplines(X_log, df=[5], degree=[3])
+    basis_gdp = bs_gdp.transform(X_log)
     
-    vcm_model = sm.OLS(Y, X_vcm).fit()
+    bs_year = BSplines(T_norm, df=[4], degree=[3])
+    basis_year = bs_year.transform(T_norm)
     
-    # Extract coefficients (Const:1, Spline:5, Interaction:5)
-    # Interaction coefficients start at index 1 + n_basis
-    interaction_coeffs = vcm_model.params[1 + n_basis:]
-    beta_gdp = basis_matrix @ interaction_coeffs
+    # Tensor Product Expansion
+    n_obs = len(df)
+    n_gdp = basis_gdp.shape[1]
+    n_year = basis_year.shape[1]
+    tp_basis = np.zeros((n_obs, n_gdp * n_year))
+    for i in range(n_gdp):
+        for j in range(n_year):
+            tp_basis[:, i * n_year + j] = basis_gdp[:, i] * basis_year[:, j]
+            
+    # Interaction Basis: TP_Basis * Health Expenditure
+    tp_interaction = tp_basis * D[:, np.newaxis]
     
-    # 3. DOUBLE MACHINE LEARNING (DML) Baseline
-    model_y = GLMGam(Y, smoother=bs).fit()
+    # Full Model: Intercept + TP_Basis (Baseline) + TP_Interaction (VCM Effect)
+    X_st_vcm = np.hstack([sm.add_constant(tp_basis), tp_interaction])
+    model = sm.OLS(Y, X_st_vcm).fit()
+    
+    # 3. EXTRACT THE SURFACE: beta(GDP, Year)
+    # Coefficients for interaction start after constant (1) and baseline basis (n_gdp*n_year)
+    interaction_coeffs = model.params[1 + (n_gdp * n_year):]
+    beta_surface = tp_basis @ interaction_coeffs
+    
+    # 4. TEMPORAL TRENDS
+    # Compute average efficiency per year
+    df["beta_st"] = beta_surface
+    temporal_efficiency = df.groupby("year")["beta_st"].mean().to_dict()
+    
+    # 5. DOUBLE MACHINE LEARNING (Panel Baseline)
+    # (Simple panel-averaged causal effect)
+    model_y = sm.OLS(Y, sm.add_constant(tp_basis)).fit()
     Y_res = Y - model_y.predict()
-    model_d = GLMGam(D, smoother=bs).fit()
+    model_d = sm.OLS(D, sm.add_constant(tp_basis)).fit()
     D_res = D - model_d.predict()
     dml_model = sm.OLS(Y_res, sm.add_constant(D_res)).fit()
     causal_effect_avg = dml_model.params[1]
     
-    # 4. QUANTILE SPLINES
-    quantiles = [0.1, 0.5, 0.9]
-    q_fits = {}
-    for q in quantiles:
-        q_model = sm.QuantReg(Y, X_const).fit(q=q)
-        q_fits[f"q{int(q*100)}"] = q_model.predict(X_const)
-    
     # Save Results
     results = {
-        "analysis_year": 2019,
-        "n_countries": len(df_2019),
+        "analysis_type": "ST-VCM",
+        "n_observations": n_obs,
         "causal_effect_avg": float(causal_effect_avg),
-        "vcm_beta_mean": float(np.mean(beta_gdp)),
+        "temporal_efficiency": temporal_efficiency,
         "data_points": [
             {
                 "iso3c": iso3,
+                "year": int(y),
                 "gdp": float(g),
                 "health_exp": float(he),
                 "life_expectancy": float(le),
-                "q10": float(q10),
-                "q50": float(q50),
-                "q90": float(q90),
-                "beta_gdp": float(b)
+                "beta_st": float(b) # Spatio-Temporal Efficiency
             }
-            for iso3, g, he, le, q10, q50, q90, b in zip(
-                df_2019["iso3c"], df_2019["gdp_pc_usd"], D, Y, 
-                q_fits["q10"], q_fits["q50"], q_fits["q90"], beta_gdp
+            for iso3, y, g, he, le, b in zip(
+                df["iso3c"], df["year"], df["gdp_pc_usd"], D, Y, beta_surface
             )
         ]
     }
@@ -92,7 +104,7 @@ def run_analysis():
         
     with open(os.path.join(DASHBOARD_DIR, "results.json"), "w") as f:
         json.dump(results, f, indent=4)
-    print("VCM analysis complete.")
+    print("Spatio-Temporal VCM (ST-VCM) analysis complete.")
 
 if __name__ == "__main__":
     run_analysis()
