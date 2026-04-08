@@ -9,7 +9,7 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 1200px; margin: 40px auto; padding: 0 20px; color: #333; }
         h1 { color: #2c3e50; }
         .meta { font-size: 0.9em; color: #666; background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 30px; }
-        #chart, #causal-chart { width: 100%; height: 600px; margin-bottom: 50px; }
+        #chart, #vcm-chart { width: 100%; height: 600px; margin-bottom: 50px; }
         .footer { margin-top: 50px; font-size: 0.8em; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
         .stat-card { display: inline-block; background: #eef2f7; padding: 10px 20px; border-radius: 8px; margin-right: 20px; margin-bottom: 10px; }
         .stat-val { font-size: 1.5em; font-weight: bold; color: #2980b9; }
@@ -19,7 +19,7 @@
 </head>
 <body>
     <h1>Modern Non-Parametrics in Global Health</h1>
-    <p>Advanced <strong>Double Machine Learning (DML)</strong> and <strong>Quantile Spline</strong> analysis of global health data lakes (IHME, WB, WHO).</p>
+    <p>Advanced <strong>Non-parametric Varying Coefficient Model (VCM)</strong> and <strong>Quantile Spline</strong> analysis.</p>
     
     <div id="stats"></div>
 
@@ -29,14 +29,14 @@
             <div id="chart"></div>
         </div>
         <div>
-            <h2>2. Causal Orthogonalization (DML)</h2>
-            <div id="causal-chart"></div>
+            <h2>2. Varying Causal Efficiency (VCM)</h2>
+            <div id="vcm-chart"></div>
         </div>
     </div>
 
     <div class="meta">
         <h3>TruthCert Provenance</h3>
-        <p><strong>Protocol:</strong> E156 v0.2 | <strong>Method:</strong> Double Machine Learning (DML) with B-Spline Nuisance Models</p>
+        <p><strong>Protocol:</strong> E156 v0.2 | <strong>Method:</strong> Varying Coefficient Model (Spline basis interactions)</p>
         <div id="provenance">Loading manifest...</div>
     </div>
 
@@ -54,16 +54,16 @@
             // Display stats
             document.getElementById('stats').innerHTML = `
                 <div class="stat-card">
-                    <div class="stat-label">Causal Effect (DML)</div>
-                    <div class="stat-val">${data.causal_effect.toFixed(3)} yrs/%</div>
+                    <div class="stat-label">Avg Causal Effect</div>
+                    <div class="stat-val">${data.causal_effect_avg.toFixed(3)} yrs/%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">95% CI</div>
-                    <div class="stat-val">[${data.causal_ci_lower.toFixed(2)}, ${data.causal_ci_upper.toFixed(2)}]</div>
+                    <div class="stat-label">VCM Beta Mean</div>
+                    <div class="stat-val">${data.vcm_beta_mean.toFixed(3)} yrs/%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Non-Linearity Score</div>
-                    <div class="stat-val">${data.non_linearity_score_pct.toFixed(2)}%</div>
+                    <div class="stat-label">Analysis Year</div>
+                    <div class="stat-val">${data.analysis_year}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Countries</div>
@@ -81,12 +81,12 @@
             document.getElementById('provenance').innerHTML = provHtml;
 
             // Chart 1: Distributional Fit
-            const countries = data.data_points.map(p => p.iso3c);
             const gdps = data.data_points.map(p => p.gdp);
             const les = data.data_points.map(p => p.life_expectancy);
             const q10 = data.data_points.map(p => p.q10);
             const q50 = data.data_points.map(p => p.q50);
             const q90 = data.data_points.map(p => p.q90);
+            const countries = data.data_points.map(p => p.iso3c);
 
             Plotly.newPlot('chart', [
                 { x: gdps, y: les, mode: 'markers', name: 'Actual', text: countries, marker: { color: 'rgba(52, 152, 219, 0.4)' } },
@@ -95,20 +95,14 @@
                 { x: gdps, y: q90, mode: 'lines', name: '90th Pct', line: { color: '#3498db' } }
             ], { xaxis: { type: 'log', title: 'GDP (USD)' }, yaxis: { title: 'Life Expectancy' }, margin: { t: 30 } });
 
-            // Chart 2: Causal Residuals (DML)
-            const dRes = data.data_points.map(p => p.d_res);
-            const yRes = data.data_points.map(p => p.y_res);
-            
-            // Regression line for residuals
-            const xRange = [Math.min(...dRes), Math.max(...dRes)];
-            const yRange = xRange.map(x => x * data.causal_effect);
+            // Chart 2: Varying Coefficient beta(GDP)
+            const betaGdp = data.data_points.map(p => p.beta_gdp);
 
-            Plotly.newPlot('causal-chart', [
-                { x: dRes, y: yRes, mode: 'markers', name: 'Orthogonal Residuals', text: countries, marker: { color: 'rgba(155, 89, 182, 0.5)' } },
-                { x: xRange, y: yRange, mode: 'lines', name: 'Causal Effect', line: { color: '#8e44ad', width: 3 } }
+            Plotly.newPlot('vcm-chart', [
+                { x: gdps, y: betaGdp, mode: 'lines', name: 'Efficiency beta(GDP)', line: { color: '#8e44ad', width: 3 } }
             ], { 
-                xaxis: { title: 'Health Exp Residuals (Partialled out GDP)' }, 
-                yaxis: { title: 'Life Exp Residuals (Partialled out GDP)' },
+                xaxis: { type: 'log', title: 'GDP (USD)' }, 
+                yaxis: { title: 'Efficiency (Life Exp years / 1% Health Spending)' },
                 margin: { t: 30 }
             });
         }
