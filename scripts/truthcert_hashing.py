@@ -17,19 +17,24 @@ def generate_manifest(data_dir, output_file):
         "files": []
     }
     
+    # Files often have creation/modification times that act as fetch_timestamps
     for filename in os.listdir(data_dir):
         file_path = os.path.join(data_dir, filename)
-        if os.path.isfile(file_path):
+        if os.path.isfile(file_path) and filename != "manifest.json":
             file_hash = compute_sha256(file_path)
+            # Use file modification time as fetch_timestamp
+            fetch_time = datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat()
+            
             manifest["files"].append({
                 "filename": filename,
                 "sha256": file_hash,
-                "size_bytes": os.path.getsize(file_path)
+                "size_bytes": os.path.getsize(file_path),
+                "fetch_timestamp": fetch_time
             })
             
     with open(output_file, "w") as f:
         json.dump(manifest, f, indent=4)
-    print(f"Manifest written to {output_file}")
+    print(f"Manifest with fetch timestamps written to {output_file}")
 
 if __name__ == "__main__":
     generate_manifest("data", "data/manifest.json")

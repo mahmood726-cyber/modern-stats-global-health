@@ -18,14 +18,14 @@
 </head>
 <body>
     <h1>Modern Non-Parametrics in Global Health</h1>
-    <p>Analyzing the relationship between GDP per capita and Life Expectancy using Kernel Regression.</p>
+    <p>Analyzing the relationship between GDP per capita and Life Expectancy using <strong>Generalized Additive Models (GAMs)</strong> with B-Splines.</p>
     
     <div id="stats"></div>
     <div id="chart"></div>
 
     <div class="meta">
         <h3>TruthCert Provenance</h3>
-        <p><strong>Protocol:</strong> E156 v0.2 | <strong>Method:</strong> Non-parametric Kernel Regression (Gaussian Kernel)</p>
+        <p><strong>Protocol:</strong> E156 v0.2 | <strong>Method:</strong> GAM (B-Splines, df=5, degree=3)</p>
         <div id="provenance">Loading manifest...</div>
     </div>
 
@@ -52,15 +52,20 @@
                     <div class="stat-val">${data.n_countries}</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Mean Delta (NP vs Lin)</div>
-                    <div class="stat-val">${data.mean_delta.toFixed(2)} yrs</div>
+                    <div class="stat-label">Non-Linearity Score</div>
+                    <div class="stat-val">${data.non_linearity_score_pct.toFixed(2)}%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Mean Delta</div>
+                    <div class="stat-val">${data.mean_delta_years.toFixed(2)} yrs</div>
                 </div>
             `;
 
             // Display provenance
             let provHtml = `<ul>`;
             manifest.files.forEach(f => {
-                provHtml += `<li><code>${f.filename}</code>: <small>${f.sha256.substring(0, 16)}...</small></li>`;
+                provHtml += `<li><code>${f.filename}</code>: <small>${f.sha256.substring(0, 16)}...</small> 
+                    <span style="color:#aaa; font-size:0.8em">| Fetch: ${f.fetch_timestamp.substring(0, 10)}</span></li>`;
             });
             provHtml += `</ul>`;
             document.getElementById('provenance').innerHTML = provHtml;
@@ -78,7 +83,7 @@
                     y: les,
                     mode: 'markers',
                     type: 'scatter',
-                    name: 'Actual Data',
+                    name: 'Actual Data (IHME/WB/WHO)',
                     text: countries,
                     marker: { color: 'rgba(52, 152, 219, 0.5)' }
                 },
@@ -86,14 +91,14 @@
                     x: gdps,
                     y: linFits,
                     mode: 'lines',
-                    name: 'Linear Baseline',
+                    name: 'Linear Baseline (Log10-GDP)',
                     line: { color: '#e74c3c', dash: 'dash' }
                 },
                 {
                     x: gdps,
                     y: npFits,
                     mode: 'lines',
-                    name: 'Non-Parametric Fit',
+                    name: 'GAM (B-Spline Smooth)',
                     line: { color: '#2ecc71', width: 3 }
                 }
             ];
