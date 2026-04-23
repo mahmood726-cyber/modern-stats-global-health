@@ -1,6 +1,6 @@
 {
     "project": "modern-stats-global-health",
-    "timestamp": "2026-04-08T21:58:50.847528",
+    "timestamp": "2026-04-12T00:10:07.707699",
     "files": [
         {
             "filename": "country_mapping.parquet",
@@ -42,13 +42,13 @@
             "filename": "wb_indicators.parquet",
             "sha256": "68f32cbd419c4f800ea7dce489f51ff6596db9d11730d2f03cc073f3de749970",
             "size_bytes": 20849,
-            "fetch_timestamp": "2026-04-08T21:58:21.496254"
+            "fetch_timestamp": "2026-04-12T00:09:44.735801"
         },
         {
             "filename": "who_life_expectancy.parquet",
-            "sha256": "2fdc1c7a65def2ff226b36630c27b41baf812cae90ebd9d7c0c229180fe71660",
-            "size_bytes": 52321,
-            "fetch_timestamp": "2026-04-08T21:58:40.707074"
+            "sha256": "77a39aed019435ff4aac5623c1b3a0b2010e538e263268e174a5a210c92f7435",
+            "size_bytes": 52330,
+            "fetch_timestamp": "2026-04-12T00:10:00.679722"
         }
     ]
 }

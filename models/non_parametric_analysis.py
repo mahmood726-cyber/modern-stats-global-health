@@ -3,15 +3,16 @@ import numpy as np
 import statsmodels.api as sm
 from statsmodels.gam.api import BSplines
 import json
-import os
+from pathlib import Path
 
-DATA_DIR = "data"
-DASHBOARD_DIR = "dashboard"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = PROJECT_ROOT / "data"
+RESULTS_PATH = PROJECT_ROOT / "results.json"
 
 def run_analysis():
     # 1. DATA LOADING
-    wb = pd.read_parquet(os.path.join(DATA_DIR, "wb_indicators.parquet"))
-    who = pd.read_parquet(os.path.join(DATA_DIR, "who_life_expectancy.parquet"))
+    wb = pd.read_parquet(DATA_DIR / "wb_indicators.parquet")
+    who = pd.read_parquet(DATA_DIR / "who_life_expectancy.parquet")
     df = wb.merge(who, on=["iso3c", "year"], how="inner")
     df = df.dropna(subset=["gdp_pc_usd", "health_exp_pct_gdp", "life_expectancy"])
     
@@ -108,9 +109,9 @@ def run_analysis():
         ]
     }
     
-    with open("results.json", "w") as f:
+    with RESULTS_PATH.open("w", encoding="utf-8") as f:
         json.dump(results, f, indent=4)
-    print("Stress Test and Policy Simulation complete. Results saved to root.")
+    print(f"Stress Test and Policy Simulation complete. Results saved to {RESULTS_PATH}.")
 
 if __name__ == "__main__":
     run_analysis()
